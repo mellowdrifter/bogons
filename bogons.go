@@ -2,9 +2,9 @@ package bogons
 
 import "net"
 
-// ValidASN checks whether an ASN is valid.
+// ValidPublicASN checks whether an ASN is valid.
 // No private or reserved ASNs are valid.
-func ValidASN(asn uint32) bool {
+func ValidPublicASN(asn uint32) bool {
 	switch {
 	case asn == 0: // RFC6483, RFC7607
 		return false
@@ -30,9 +30,9 @@ func ValidASN(asn uint32) bool {
 
 }
 
-// ValidIP just checks whether the strings parses into
+// ValidPublicIP just checks whether the strings parses into
 // either an IPv4 or IPv6 address. It must also be public.
-func ValidIP(ip string) bool {
+func ValidPublicIP(ip string) bool {
 	parsed := net.ParseIP(ip)
 	if parsed == nil {
 		return false
@@ -79,11 +79,14 @@ func IsPublicIPv4(ip net.IP) bool {
 	// rfc3927
 	case ip[0] == 169 && ip[1] == 254:
 		return false
-	// rfc6980 && rfc5737
+	// rfc5737
 	case ip[0] == 192 && ip[1] == 0 && (ip[2] == 0 || ip[2] == 2):
 		return false
 	// rfc5737
 	case ip[0] == 198 && ip[1] == 51 && ip[2] == 100:
+		return false
+	// rfc5737
+	case ip[0] == 198 && (ip[1] == 18 || ip[1] == 19):
 		return false
 	// rfc5737
 	case ip[0] == 203 && ip[1] == 0 && ip[2] == 113:
@@ -104,10 +107,16 @@ func IsPublicIPv6(ip net.IP) bool {
 	}
 	switch {
 	// Teredo tunnels 2001::/32
-	case ip[0] == 32 && ip[1] == 1 && ip[2] == 0 && ip[3] == 0:
+	case ip[0] == 32 && ip[1] == 1 && ip[2] == 0:
+		return false
+	// 6bone 3ffe::/16
+	case ip[0] == 63 && ip[1] == 254:
 		return false
 	// documentation 2001:db8::/32
 	case ip[0] == 32 && ip[1] == 1 && ip[2] == 13 && ip[3] == 184:
+		return false
+	// 6to4 2002::/16
+	case ip[0] == 32 && ip[1] == 2:
 		return false
 	}
 	// Besides the above, as long as the prefix sits inside 2000::/3 it's public

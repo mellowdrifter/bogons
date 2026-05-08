@@ -1,6 +1,35 @@
 package bogons
 
-import "net"
+import "net/netip"
+
+// IPv4 bogon prefixes
+var (
+	v4This       = netip.MustParsePrefix("0.0.0.0/8")       // RFC 1122
+	v4Loopback   = netip.MustParsePrefix("127.0.0.0/8")     // RFC 1122
+	v4RFC1918a   = netip.MustParsePrefix("10.0.0.0/8")      // RFC 1918
+	v4RFC1918b   = netip.MustParsePrefix("172.16.0.0/12")   // RFC 1918
+	v4RFC1918c   = netip.MustParsePrefix("192.168.0.0/16")  // RFC 1918
+	v4RFC6598    = netip.MustParsePrefix("100.64.0.0/10")   // RFC 6598 (shared address)
+	v4LinkLocal  = netip.MustParsePrefix("169.254.0.0/16")  // RFC 3927
+	v4IANA1      = netip.MustParsePrefix("192.0.0.0/24")    // RFC 6890 (IANA special purpose)
+	v4Doc1       = netip.MustParsePrefix("192.0.2.0/24")    // RFC 5737
+	v4Doc2       = netip.MustParsePrefix("198.51.100.0/24") // RFC 5737
+	v4Doc3       = netip.MustParsePrefix("203.0.113.0/24")  // RFC 5737
+	v4Benchmarks = netip.MustParsePrefix("198.18.0.0/15")   // RFC 2544
+	v4Multicast  = netip.MustParsePrefix("224.0.0.0/4")     // RFC 1112 (Class D)
+	v4ClassE     = netip.MustParsePrefix("240.0.0.0/4")     // RFC 1112 (Class E)
+)
+
+// IPv6 bogon prefixes
+var (
+	v6IETF       = netip.MustParsePrefix("2001::/23")      // RFC 2928 (IETF Protocol Assignments) - covers Teredo, Benchmarks, ORCHID, etc.
+	v6Doc        = netip.MustParsePrefix("2001:db8::/32")  // RFC 3849
+	v66to4       = netip.MustParsePrefix("2002::/16")      // RFC 3056
+	v6Discard    = netip.MustParsePrefix("100::/64")       // RFC 6666
+	v6NAT64      = netip.MustParsePrefix("64:ff9b::/96")   // RFC 6052
+	v6NAT64Local = netip.MustParsePrefix("64:ff9b:1::/48") // RFC 8215
+	v66bone      = netip.MustParsePrefix("3ffe::/16")      // RFC 3701 (deprecated)
+)
 
 // ValidPublicASN checks whether an ASN is valid.
 // No private or reserved ASNs are valid.
@@ -27,98 +56,101 @@ func ValidPublicASN(asn uint32) bool {
 	}
 
 	return true
-
 }
 
-// ValidPublicIP just checks whether the strings parses into
-// either an IPv4 or IPv6 address. It must also be public.
+// ValidPublicIP reports whether the string s parses as a publicly routable
+// IPv4 or IPv6 address.
 func ValidPublicIP(ip string) bool {
-	parsed := net.ParseIP(ip)
-	if parsed == nil {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
 		return false
 	}
-
-	// Private IPs are not valid
-	return IsPublicIP(parsed)
+	return ValidPublicAddr(addr)
 }
 
-// IsPublicIP checks to ensure that the provided ip is public. Either IPv4 or IPv6 can be used as input.
-func IsPublicIP(ip net.IP) bool {
-	if ip4 := ip.To4(); ip4 != nil {
-		return IsPublicIPv4(ip4)
+// ValidPublicAddr reports whether addr is a publicly routable address.
+// Both IPv4 and IPv6 are supported. Mapped IPv4-in-IPv6 addresses are
+// treated as IPv4.
+func ValidPublicAddr(addr netip.Addr) bool {
+	addr = addr.Unmap() // normalise IPv4-in-IPv6 to plain IPv4
+	if !addr.IsValid() {
+		return false
 	}
-	return IsPublicIPv6(ip)
-
+	if addr.Is4() {
+		return ValidPublicAddrV4(addr)
+	}
+	return ValidPublicAddrV6(addr)
 }
 
-// IsPublicIPv4 checks if the IPv4 address is a valid public address.
-func IsPublicIPv4(ip net.IP) bool {
-	if !ip.IsGlobalUnicast() {
+// ValidPublicAddrV4 reports whether addr is a publicly routable IPv4 address.
+func ValidPublicAddrV4(addr netip.Addr) bool {
+	if !addr.Is4() {
 		return false
 	}
-
-	switch {
-	// 0.x.x.x/8
-	case ip[0] == 0:
-		return false
-	// loopbacks
-	case ip[0] == 127:
-		return false
-	// rfc1918
-	case ip[0] == 10:
-		return false
-	// rfc1918
-	case ip[0] == 172 && ip[1] >= 16 && ip[1] <= 31:
-		return false
-	// rfc1918
-	case ip[0] == 192 && ip[1] == 168:
-		return false
-	// rfc6598
-	case ip[0] == 100 && ip[1] >= 64 && ip[1] <= 127:
-		return false
-	// rfc3927
-	case ip[0] == 169 && ip[1] == 254:
-		return false
-	// rfc5737
-	case ip[0] == 192 && ip[1] == 0 && (ip[2] == 0 || ip[2] == 2):
-		return false
-	// rfc5737
-	case ip[0] == 198 && ip[1] == 51 && ip[2] == 100:
-		return false
-	// rfc5737
-	case ip[0] == 198 && (ip[1] == 18 || ip[1] == 19):
-		return false
-	// rfc5737
-	case ip[0] == 203 && ip[1] == 0 && ip[2] == 113:
-		return false
-	// class D,E
-	case ip[0] >= 224:
+	if !addr.IsGlobalUnicast() {
 		return false
 	}
-
+	for _, bogon := range []netip.Prefix{
+		v4This, v4Loopback, v4RFC1918a, v4RFC1918b, v4RFC1918c,
+		v4RFC6598, v4LinkLocal, v4IANA1, v4Doc1, v4Doc2, v4Doc3,
+		v4Benchmarks, v4Multicast, v4ClassE,
+	} {
+		if bogon.Contains(addr) {
+			return false
+		}
+	}
 	return true
-
 }
 
-// IsPublicIPv6 checks if the IPv6 address is a valid public address.
-func IsPublicIPv6(ip net.IP) bool {
-	if !ip.IsGlobalUnicast() {
+// ValidPublicAddrV6 reports whether addr is a publicly routable IPv6 address.
+// ULA addresses (fc00::/7) are rejected implicitly via IsGlobalUnicast.
+// Only addresses within 2000::/3 are considered publicly routable.
+func ValidPublicAddrV6(addr netip.Addr) bool {
+	if !addr.Is6() {
 		return false
 	}
-	switch {
-	// Teredo tunnels 2001::/32
-	case ip[0] == 32 && ip[1] == 1 && ip[2] == 0:
-		return false
-	// 6bone 3ffe::/16
-	case ip[0] == 63 && ip[1] == 254:
-		return false
-	// documentation 2001:db8::/32
-	case ip[0] == 32 && ip[1] == 1 && ip[2] == 13 && ip[3] == 184:
-		return false
-	// 6to4 2002::/16
-	case ip[0] == 32 && ip[1] == 2:
+	if !addr.IsGlobalUnicast() {
+		return false // catches ULA (fc00::/7), loopback, link-local, etc.
+	}
+	for _, bogon := range []netip.Prefix{
+		v6IETF, v6Doc, v66to4,
+		v6Discard, v6NAT64, v6NAT64Local, v66bone,
+	} {
+		if bogon.Contains(addr) {
+			return false
+		}
+	}
+	// Only 2000::/3 is globally routable
+	a := addr.As16()
+	return a[0] >= 0x20 && a[0] <= 0x3f
+}
+
+// ValidPublicPrefix reports whether prefix is a publicly routable, correctly
+// bounded network prefix suitable for BGP announcement.
+//
+// IPv4: prefix length must be between /8 and /24 (inclusive).
+// IPv6: prefix length must be between /16 and /48 (inclusive).
+//
+// Prefixes with host bits set (i.e. not normalised) are rejected.
+func ValidPublicPrefix(prefix netip.Prefix) bool {
+	// Must be normalised — no host bits set
+	if prefix != prefix.Masked() {
 		return false
 	}
-	// Besides the above, as long as the prefix sits inside 2000::/3 it's public
-	return ip[0] >= 32 && ip[0] <= 63
+
+	addr := prefix.Addr()
+	bits := prefix.Bits()
+
+	if addr.Is4() {
+		if bits < 8 || bits > 24 {
+			return false
+		}
+		return ValidPublicAddrV4(addr)
+	}
+
+	// IPv6
+	if bits < 16 || bits > 48 {
+		return false
+	}
+	return ValidPublicAddrV6(addr)
 }

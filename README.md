@@ -59,7 +59,7 @@ func main() {
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. Check out [todo.md](todo.md) for planned improvements.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 

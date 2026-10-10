@@ -84,6 +84,10 @@ func main() {
 	valid, reason = bogons.CheckASN(64512)
 	fmt.Printf("AS64512: valid=%v, reason=%q\n", valid, reason)
 	// Output: AS64512: valid=false, reason="RFC 1930 / RFC 6996 (Private-Use 16-bit)"
+
+	// String checking (handles decimal, "AS" prefix, and asdot "1.0"):
+	valid, reason = bogons.CheckASNString("AS64512")
+	// Output: valid=false, reason="RFC 1930 / RFC 6996 (Private-Use 16-bit)"
 }
 ```
 

@@ -1,6 +1,11 @@
 package bogons
 
-import "net/netip"
+import (
+	"fmt"
+	"net/netip"
+	"strconv"
+	"strings"
+)
 
 type prefixRule struct {
 	prefix netip.Prefix
@@ -90,6 +95,59 @@ func CheckASN(asn uint32) (bool, string) {
 // Deprecated / convenience wrapper around CheckASN.
 func ValidPublicASN(asn uint32) bool {
 	valid, _ := CheckASN(asn)
+	return valid
+}
+
+// ParseASN parses a string representation of an ASN.
+// It accepts decimal strings ("15169"), strings with leading "AS"/"as" ("AS15169"),
+// and 4-byte asdot notation ("1.0").
+func ParseASN(s string) (uint32, error) {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "AS") || strings.HasPrefix(s, "as") || strings.HasPrefix(s, "As") || strings.HasPrefix(s, "aS") {
+		s = s[2:]
+	}
+	if s == "" {
+		return 0, fmt.Errorf("empty ASN string")
+	}
+
+	// Check asdot notation (e.g. 1.0)
+	if strings.Contains(s, ".") {
+		parts := strings.Split(s, ".")
+		if len(parts) != 2 {
+			return 0, fmt.Errorf("invalid asdot syntax: %s", s)
+		}
+		high, err := strconv.ParseUint(parts[0], 10, 16)
+		if err != nil {
+			return 0, fmt.Errorf("invalid asdot high order 16-bit: %w", err)
+		}
+		low, err := strconv.ParseUint(parts[1], 10, 16)
+		if err != nil {
+			return 0, fmt.Errorf("invalid asdot low order 16-bit: %w", err)
+		}
+		return uint32(high<<16 | low), nil
+	}
+
+	n, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
+}
+
+// CheckASNString parses and checks whether an ASN string is valid and publicly routable.
+// Accepts asplain ("15169"), with "AS" prefix ("AS15169"), or asdot ("1.0").
+// If valid, returns true and an empty reason. If invalid syntax or a bogon, returns false and the reason.
+func CheckASNString(s string) (bool, string) {
+	asn, err := ParseASN(s)
+	if err != nil {
+		return false, "Invalid ASN syntax"
+	}
+	return CheckASN(asn)
+}
+
+// ValidPublicASNString reports whether the string s is a valid publicly routable ASN.
+func ValidPublicASNString(s string) bool {
+	valid, _ := CheckASNString(s)
 	return valid
 }
 

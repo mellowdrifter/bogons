@@ -337,6 +337,41 @@ func TestCheckFunctions(t *testing.T) {
 	if valid || reason != "RFC 6483 / RFC 7607 (Reserved ASN 0)" {
 		t.Errorf("CheckASN(0) = (%v, %q)", valid, reason)
 	}
+
+	// CheckASNString: decimal, AS prefix, asdot, bogon reason, malformed
+	valid, reason = bogons.CheckASNString("15169")
+	if !valid || reason != "" {
+		t.Errorf("CheckASNString(15169) = (%v, %q)", valid, reason)
+	}
+
+	valid, reason = bogons.CheckASNString("AS15169")
+	if !valid || reason != "" {
+		t.Errorf("CheckASNString(AS15169) = (%v, %q)", valid, reason)
+	}
+
+	valid, reason = bogons.CheckASNString("as64512")
+	if valid || reason != "RFC 1930 / RFC 6996 (Private-Use 16-bit)" {
+		t.Errorf("CheckASNString(as64512) = (%v, %q)", valid, reason)
+	}
+
+	// asdot notation: 1.0 = 65536 (RFC 5398 32-bit documentation)
+	valid, reason = bogons.CheckASNString("1.0")
+	if valid || reason != "RFC 5398 (Documentation 32-bit)" {
+		t.Errorf("CheckASNString(1.0) = (%v, %q)", valid, reason)
+	}
+
+	valid, reason = bogons.CheckASNString("not-an-asn")
+	if valid || reason != "Invalid ASN syntax" {
+		t.Errorf("CheckASNString(not-an-asn) = (%v, %q)", valid, reason)
+	}
+
+	if !bogons.ValidPublicASNString("AS15169") {
+		t.Errorf("ValidPublicASNString(AS15169) should be true")
+	}
+
+	if bogons.ValidPublicASNString("AS64512") {
+		t.Errorf("ValidPublicASNString(AS64512) should be false")
+	}
 }
 
 func TestCheckPrefixNoBitBoundaryRestriction(t *testing.T) {

@@ -38,6 +38,11 @@ var ipTests = []ipTestCase{
 	{"224.0.0.1", false, "RFC 1112 (Multicast)"},
 	{"240.0.0.1", false, "RFC 1112 (Class E / Reserved)"},
 	{"255.255.255.255", false, "RFC 919 (Broadcast)"},
+	{"192.88.99.1", false, "RFC 7526 (6to4 Relay Anycast)"},
+	{"192.31.196.1", false, "RFC 7535 (AS112-v4)"},
+	{"192.52.193.1", false, "RFC 7450 (AMT)"},
+	{"192.0.0.170", false, "RFC 8880 (NAT64 Discovery)"},
+	{"192.0.0.9", false, "RFC 7725 (PCP Anycast)"},
 
 	// IPv6 Global Unicast (Valid)
 	{"2600::", true, "Global Unicast"},
@@ -61,6 +66,10 @@ var ipTests = []ipTestCase{
 	{"64:ff9b:1::1", false, "RFC 8215 (Local-Use NAT64)"},
 	{"3ffe::1", false, "RFC 3701 (6bone)"},
 	{"ff02::1", false, "RFC 4291 (Multicast)"},
+	{"2620:4f:8000::1", false, "RFC 7534 (AS112-v6)"},
+	{"2001:30::1", false, "RFC 9385 (Drone Remote ID)"},
+	{"2001:3::1", false, "RFC 7450 (AMT IPv6)"},
+	{"4000::1", false, "RFC 4291 (Outside 2000::/3)"},
 
 	// Edge Cases
 	{"::ffff:1.2.3.4", true, "IPv4-mapped IPv6 (Public)"},
@@ -249,3 +258,114 @@ func TestCoverageEdgeCases(t *testing.T) {
 		t.Error("IsPublicIPv6(invalid) should be false")
 	}
 }
+
+func TestCheckFunctions(t *testing.T) {
+	t.Parallel()
+
+	// CheckIP valid
+	valid, reason := bogons.CheckIP("8.8.8.8")
+	if !valid || reason != "" {
+		t.Errorf("CheckIP(8.8.8.8) = (%v, %q), want (true, \"\")", valid, reason)
+	}
+
+	// CheckIP invalid syntax
+	valid, reason = bogons.CheckIP("not-an-ip")
+	if valid || reason != "Invalid IP address syntax" {
+		t.Errorf("CheckIP(not-an-ip) = (%v, %q)", valid, reason)
+	}
+
+	// CheckIP private RFC 1918
+	valid, reason = bogons.CheckIP("192.168.1.1")
+	if valid || reason != "RFC 1918 (Private-Use)" {
+		t.Errorf("CheckIP(192.168.1.1) = (%v, %q), want false with RFC 1918", valid, reason)
+	}
+
+	// CheckIP CGNAT RFC 6598
+	valid, reason = bogons.CheckIP("100.64.0.1")
+	if valid || reason != "RFC 6598 (Shared Address Space / CGNAT)" {
+		t.Errorf("CheckIP(100.64.0.1) = (%v, %q), want false with RFC 6598", valid, reason)
+	}
+
+	// CheckIP Loopback RFC 1122
+	valid, reason = bogons.CheckIP("127.0.0.1")
+	if valid || reason != "RFC 1122 (Loopback)" {
+		t.Errorf("CheckIP(127.0.0.1) = (%v, %q)", valid, reason)
+	}
+
+	// CheckIP Documentation RFC 5737
+	valid, reason = bogons.CheckIP("192.0.2.1")
+	if valid || reason != "RFC 5737 (Documentation TEST-NET-1)" {
+		t.Errorf("CheckIP(192.0.2.1) = (%v, %q)", valid, reason)
+	}
+
+	// CheckIP Deprecated 6to4 RFC 7526
+	valid, reason = bogons.CheckIP("192.88.99.1")
+	if valid || reason != "RFC 7526 (6to4 Relay Anycast - Deprecated)" {
+		t.Errorf("CheckIP(192.88.99.1) = (%v, %q)", valid, reason)
+	}
+
+	// CheckIP IPv6 ULA RFC 4193
+	valid, reason = bogons.CheckIP("fc00::1")
+	if valid || reason != "RFC 4193 (Unique Local Address / ULA)" {
+		t.Errorf("CheckIP(fc00::1) = (%v, %q)", valid, reason)
+	}
+
+	// CheckIP IPv6 Documentation RFC 3849
+	valid, reason = bogons.CheckIP("2001:db8::1")
+	if valid || reason != "RFC 3849 (Documentation)" {
+		t.Errorf("CheckIP(2001:db8::1) = (%v, %q)", valid, reason)
+	}
+
+	// CheckIP IPv6 Outside 2000::/3
+	valid, reason = bogons.CheckIP("4000::1")
+	if valid || reason != "RFC 4291 (IANA Unallocated / Outside 2000::/3 Global Unicast)" {
+		t.Errorf("CheckIP(4000::1) = (%v, %q)", valid, reason)
+	}
+
+	// CheckASN
+	valid, reason = bogons.CheckASN(15169)
+	if !valid || reason != "" {
+		t.Errorf("CheckASN(15169) = (%v, %q), want (true, \"\")", valid, reason)
+	}
+
+	valid, reason = bogons.CheckASN(64512)
+	if valid || reason != "RFC 1930 / RFC 6996 (Private-Use 16-bit)" {
+		t.Errorf("CheckASN(64512) = (%v, %q)", valid, reason)
+	}
+
+	valid, reason = bogons.CheckASN(0)
+	if valid || reason != "RFC 6483 / RFC 7607 (Reserved ASN 0)" {
+		t.Errorf("CheckASN(0) = (%v, %q)", valid, reason)
+	}
+}
+
+func TestCheckPrefixNoBitBoundaryRestriction(t *testing.T) {
+	t.Parallel()
+
+	// A /25 public subnet: should be valid in CheckPrefix (ignoring /24 boundary)
+	p25 := netip.MustParsePrefix("8.8.8.0/25")
+	valid, reason := bogons.CheckPrefix(p25)
+	if !valid || reason != "" {
+		t.Errorf("CheckPrefix(8.8.8.0/25) = (%v, %q), want (true, \"\")", valid, reason)
+	}
+
+	// But ValidPublicPrefix rejects /25 due to BGP boundary rules
+	if bogons.ValidPublicPrefix(p25) {
+		t.Error("ValidPublicPrefix(8.8.8.0/25) should be false due to BGP /24 rule")
+	}
+
+	// A /32 public subnet: should be valid in CheckPrefix
+	p32 := netip.MustParsePrefix("1.1.1.1/32")
+	valid, reason = bogons.CheckPrefix(p32)
+	if !valid || reason != "" {
+		t.Errorf("CheckPrefix(1.1.1.1/32) = (%v, %q), want (true, \"\")", valid, reason)
+	}
+
+	// A /28 private subnet: sits in RFC 1918 bogon subnet
+	privPfx := netip.MustParsePrefix("10.1.2.0/28")
+	valid, reason = bogons.CheckPrefix(privPfx)
+	if valid || reason != "RFC 1918 (Private-Use)" {
+		t.Errorf("CheckPrefix(10.1.2.0/28) = (%v, %q), want false with RFC 1918", valid, reason)
+	}
+}
+

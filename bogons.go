@@ -75,7 +75,7 @@ var asRules = []asRule{
 	{64512, 65534, "RFC 1930 / RFC 6996 (Private-Use 16-bit)"},
 	{65535, 65535, "RFC 7300 (Reserved 16-bit Last ASN)"},
 	{65536, 65551, "RFC 5398 (Documentation 32-bit)"},
-	{65552, 131071, "RFC 7300 (IANA Reserved 32-bit)"},
+	{65552, 131071, "RFC 7249 / IANA (Reserved 32-bit)"},
 	{4200000000, 4294967294, "RFC 6996 (Private-Use 32-bit)"},
 	{4294967295, 4294967295, "RFC 7300 (Reserved 32-bit Last ASN)"},
 }

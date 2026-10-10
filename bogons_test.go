@@ -333,6 +333,11 @@ func TestCheckFunctions(t *testing.T) {
 		t.Errorf("CheckASN(64512) = (%v, %q)", valid, reason)
 	}
 
+	valid, reason = bogons.CheckASN(65552)
+	if valid || reason != "RFC 7249 / IANA (Reserved 32-bit)" {
+		t.Errorf("CheckASN(65552) = (%v, %q)", valid, reason)
+	}
+
 	valid, reason = bogons.CheckASN(0)
 	if valid || reason != "RFC 6483 / RFC 7607 (Reserved ASN 0)" {
 		t.Errorf("CheckASN(0) = (%v, %q)", valid, reason)

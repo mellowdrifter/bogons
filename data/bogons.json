@@ -1,5 +1,10 @@
 {
   "version": "1.4.1",
+  "version_policy": {
+    "major": "Incremented ONLY on breaking API / signature changes",
+    "minor": "Synchronized in lockstep across all 6 languages on any RFC, IANA, prefix, or ASN rule change",
+    "patch": "Language-specific bug fixes, internal optimizations, and compiler compatibility (may vary independently per language)"
+  },
   "ipv4_rules": [
     { "prefix": "0.0.0.0/8", "reason": "RFC 1122 (This Host on This Network)" },
     { "prefix": "10.0.0.0/8", "reason": "RFC 1918 (Private-Use)" },
@@ -24,6 +29,17 @@
     { "prefix": "224.0.0.0/4", "reason": "RFC 1112 (Multicast)" },
     { "prefix": "255.255.255.255/32", "reason": "RFC 919 / RFC 8190 (Limited Broadcast)" },
     { "prefix": "240.0.0.0/4", "reason": "RFC 1112 (Reserved / Former Class E)" }
+  ],
+  "ipv6_global_unicast_scope": {
+    "scope": "2000::/3",
+    "outside_reason": "RFC 4291 (IANA Unallocated / Outside 2000::/3 Global Unicast)"
+  },
+  "ipv6_special_ranges": [
+    { "prefix": "::1/128", "reason": "RFC 4291 (Loopback)" },
+    { "prefix": "::/128", "reason": "RFC 4291 (Unspecified)" },
+    { "prefix": "fe80::/10", "reason": "RFC 4291 (Link-Local)" },
+    { "prefix": "fc00::/7", "reason": "RFC 4193 (Unique Local Address / ULA)" },
+    { "prefix": "ff00::/8", "reason": "RFC 4291 (Multicast)" }
   ],
   "ipv6_rules": [
     { "prefix": "2001:db8::/32", "reason": "RFC 3849 (Documentation)" },

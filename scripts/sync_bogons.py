@@ -39,57 +39,66 @@ def load_canonical_data():
         return json.load(f)
 
 def check_versions(canonical_ver):
-    print(f"=== Checking Version Parity (Target: {canonical_ver}) ===")
+    target_parts = canonical_ver.split(".")
+    target_major, target_minor = target_parts[0], target_parts[1]
+    print(f"=== Checking Version Parity (Target: {canonical_ver}, Major.Minor lockstep: {target_major}.{target_minor}.x) ===")
     all_match = True
+
+    def eval_ver(name, ver_str):
+        nonlocal all_match
+        if ver_str == "UNKNOWN":
+            print(f"  [{name}] UNKNOWN -> FAIL")
+            all_match = False
+            return
+        parts = ver_str.split(".")
+        if len(parts) < 2:
+            print(f"  [{name}] Invalid version '{ver_str}' -> FAIL")
+            all_match = False
+            return
+        major_ok = (parts[0] == target_major)
+        minor_ok = (parts[1] == target_minor)
+        if major_ok and minor_ok:
+            if len(parts) >= 3 and parts[2] != target_parts[2]:
+                print(f"  [{name}] {ver_str} -> PASS (Language patch {parts[2]} != {target_parts[2]})")
+            else:
+                print(f"  [{name}] {ver_str} -> PASS (Exact match)")
+        else:
+            print(f"  [{name}] {ver_str} -> FAIL (Major/Minor mismatch with {target_major}.{target_minor}.x)")
+            all_match = False
 
     # 1. Rust Cargo.toml
     cargo_path = REPOS["rust"] / "Cargo.toml"
     if cargo_path.exists():
         content = cargo_path.read_text()
         m = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
-        r_ver = m.group(1) if m else "UNKNOWN"
-        ok = (r_ver == canonical_ver)
-        print(f"  [Rust] Cargo.toml: {r_ver} -> {'PASS' if ok else 'FAIL'}")
-        all_match = all_match and ok
+        eval_ver("Rust", m.group(1) if m else "UNKNOWN")
 
-    # 2. Python pyproject.toml & setup.py
+    # 2. Python pyproject.toml
     pyproject_path = REPOS["python"] / "pyproject.toml"
     if pyproject_path.exists():
         content = pyproject_path.read_text()
         m = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
-        py_ver = m.group(1) if m else "UNKNOWN"
-        ok = (py_ver == canonical_ver)
-        print(f"  [Python] pyproject.toml: {py_ver} -> {'PASS' if ok else 'FAIL'}")
-        all_match = all_match and ok
+        eval_ver("Python", m.group(1) if m else "UNKNOWN")
 
     # 3. C include/bogons.h
     c_header = REPOS["c"] / "include" / "bogons.h"
     if c_header.exists():
         content = c_header.read_text()
         m = re.search(r'#define\s+BOGONS_VERSION\s+"([^"]+)"', content)
-        c_ver = m.group(1) if m else "UNKNOWN"
-        ok = (c_ver == canonical_ver)
-        print(f"  [C] include/bogons.h: {c_ver} -> {'PASS' if ok else 'FAIL'}")
-        all_match = all_match and ok
+        eval_ver("C", m.group(1) if m else "UNKNOWN")
 
     # 4. C++ include/bogons/bogons.hpp
     cpp_header = REPOS["cpp"] / "include" / "bogons" / "bogons.hpp"
     if cpp_header.exists():
         content = cpp_header.read_text()
         m = re.search(r'VERSION\s*=\s*"([^"]+)"', content)
-        cpp_ver = m.group(1) if m else "UNKNOWN"
-        ok = (cpp_ver == canonical_ver)
-        print(f"  [C++] bogons.hpp: {cpp_ver} -> {'PASS' if ok else 'FAIL'}")
-        all_match = all_match and ok
+        eval_ver("C++", m.group(1) if m else "UNKNOWN")
 
     # 5. TypeScript package.json
     ts_pkg = REPOS["ts"] / "package.json"
     if ts_pkg.exists():
         data = json.loads(ts_pkg.read_text())
-        ts_ver = data.get("version", "UNKNOWN")
-        ok = (ts_ver == canonical_ver)
-        print(f"  [TypeScript] package.json: {ts_ver} -> {'PASS' if ok else 'FAIL'}")
-        all_match = all_match and ok
+        eval_ver("TypeScript", data.get("version", "UNKNOWN"))
 
     return all_match
 

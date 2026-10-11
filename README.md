@@ -13,6 +13,19 @@ A lightweight Go library for identifying "bogon" IP addresses and Autonomous Sys
 - **RFC Compliant**: Up-to-date with RFC 1122, RFC 1918, RFC 6598, RFC 5737, RFC 7526, RFC 7535, RFC 7450, RFC 7534, RFC 9385, RFC 8880, RFC 7725, RFC 8155, RFC 6483, RFC 7300, etc.
 - **Zero Dependencies**: Uses only the standard library (`net/netip`).
 
+## Multi-Language Implementations
+
+The `bogons` library is maintained with 100% feature parity, RFC attribution, and synchronized versioning across 6 languages:
+
+| Language | Repository (GitHub) | Package Registry | Installation |
+|---|---|---|---|
+| **Go** | [mellowdrifter/bogons](https://github.com/mellowdrifter/bogons) | [pkg.go.dev](https://pkg.go.dev/github.com/mellowdrifter/bogons) | `go get github.com/mellowdrifter/bogons` |
+| **Python** | [mellowdrifter/python-bogons](https://github.com/mellowdrifter/python-bogons) | [PyPI](https://pypi.org/project/bogons/) | `pip install bogons` |
+| **Rust** | [mellowdrifter/rust-bogons](https://github.com/mellowdrifter/rust-bogons) | [crates.io](https://crates.io/crates/bogons) | `cargo add bogons` |
+| **C** | [mellowdrifter/c-bogons](https://github.com/mellowdrifter/c-bogons) | [libbogons](https://github.com/mellowdrifter/c-bogons/releases) | Single-header / `make install` |
+| **C++** | [mellowdrifter/cpp-bogons](https://github.com/mellowdrifter/cpp-bogons) | [CMake / Header-only](https://github.com/mellowdrifter/cpp-bogons/releases) | `#include <bogons/bogons.hpp>` |
+| **TypeScript / JS** | [mellowdrifter/ts-bogons](https://github.com/mellowdrifter/ts-bogons) | [npm](https://www.npmjs.com/package/bogons) | `npm install bogons` |
+
 ## Installation
 
 ```bash
